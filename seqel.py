@@ -1,5 +1,9 @@
 import sys
+import logging
 
+# TODO just needs to be a constant.
+# Python doesn't support CAFs.
+# But _might_ inline funcs it knows to return as constants.
 def usage():
     return """
 seqel 0.0.1
@@ -18,7 +22,6 @@ SUBCOMMANDS:
     catalan       C(n) = (2n)!/(n!(n+1)!)
 """.strip()
 
-
 # TODO untested
 def factorial(n):
     assert(n > 0)
@@ -29,30 +32,63 @@ def factorial(n):
         k -= 1
     return rv
 
+def fibonacci(n):
+    """
+    Return the `n'th element of the fibonacci sequence.
+    `n' must be an whole number.
+    """
+    logging.info('calculating fibonacci number for n = {}'.format(n))
+    assert(type(0) == type(n))
+    assert(n >= 0)
+    rvs = [1, 1]
+    if n >= 0 and n < 2:
+        logging.debug('request for base case ({b} >= 0 and {b} < 2), returning {v}'.format(**{
+            "b": n,
+            "v": rvs[n],
+        }))
+        return rvs[n]
+    k = n
+    while k >= 2:
+        logging.debug('top of loop')
+        logging.debug('  k = {}'.format(k))
+        logging.debug('  len(rvs) = {}'.format(len(rvs)))
+        logging.debug('  rvs = {}'.format(rvs))
+        rvs.append(rvs[len(rvs)-1] + rvs[len(rvs)-2])
+        k -= 1
+        logging.debug('bottom of loop')
+        logging.debug('  k = {}'.format(k))
+        logging.debug('  len(rvs) = {}'.format(len(rvs)))
+        logging.debug('  rvs = {}'.format(rvs))
+    return rvs[n]
+
 # TODO untested
 def padovan(n):
-    print('calculating padovan number for n = {}'.format(n))
+    """
+    Return the `n'th element of the padovan sequence.
+    `n' must be an whole number.
+    """
+    logging.info('calculating padovan number for n = {}'.format(n))
     assert(type(0) == type(n))
     assert(n >= 0)
     rvs = [1, 1, 1]
     if n >= 0 and n < 3:
-        print('request for base case ({b} >= 0 and {b} < 3), returning {v}'.format(**{
+        logging.debug('request for base case ({b} >= 0 and {b} < 3), returning {v}'.format(**{
             "b": n,
             "v": rvs[n],
         }))
         return rvs[n]
     k = n
     while k >= 3:
-        print('top of loop')
-        print('  k = {}'.format(k))
-        print('  len(rvs) = {}'.format(len(rvs)))
-        print('  rvs = {}'.format(rvs))
+        logging.debug('top of loop')
+        logging.debug('  k = {}'.format(k))
+        logging.debug('  len(rvs) = {}'.format(len(rvs)))
+        logging.debug('  rvs = {}'.format(rvs))
         rvs.append(rvs[len(rvs)-2] + rvs[len(rvs)-3])
         k -= 1
-        print('bottom of loop')
-        print('  k = {}'.format(k))
-        print('  len(rvs) = {}'.format(len(rvs)))
-        print('  rvs = {}'.format(rvs))
+        logging.debug('bottom of loop')
+        logging.debug('  k = {}'.format(k))
+        logging.debug('  len(rvs) = {}'.format(len(rvs)))
+        logging.debug('  rvs = {}'.format(rvs))
     return rvs[n]
 
 # TODO untested
@@ -65,11 +101,11 @@ def validate_argv():
     reason = None
     if numargs != 2:
         if numargs == 0:
-            reason = 'error: no subcommand provided'
+            reason = 'no subcommand provided'
         if numargs == 1:
-            reason = 'error: no value given for indexing into sequence'
+            reason = 'no value given for indexing into sequence'
         if numargs > 2:
-            reason = 'error: too many arguments provided'
+            reason = 'too many arguments provided'
         return (not ok, reason)
     else:
         scmd = sys.argv[1]
@@ -79,7 +115,7 @@ def validate_argv():
             'fibonacci',
         ]
         if scmd.lower() not in acceptable_subcommands:
-            reason = 'error: unrecognized subcommand'
+            reason = 'unrecognized subcommand'
             return (not ok, reason)
     return ok, reason
 
@@ -92,28 +128,30 @@ def process_argv():
     try:
         qty = int(qty)
     except:
-        print('error: index value is not an integer')
-        print usage()
+        logging.error('index value is not an integer')
+        logging.error(usage())
         sys.exit(1)
 
     return sys.argv[1], qty
 
 # TODO untested
 def _unimplemented_func_err(_):
-    print('fatal: the requested subcommand has not been implemented')
+    logger.critical('the requested subcommand has not been implemented')
     sys.exit(2)
 
 # TODO untested
 def run_seqel():
+    logger = logging.getLogger()
+    logger.setLevel('NOTSET')
     if __name__ == "__main__":
-        print("seqel 0.1.0; running in debug mode")
+        logging.debug("seqel 0.1.0; running in debug mode")
         for i, arg in enumerate(sys.argv):
-            print("  arg in pos {}: {}".format(i, arg))
+            logging.debug("  arg in pos {}: {}".format(i, arg))
 
         ok, reason = validate_argv()
         if not ok:
-            print reason
-            print usage()
+            logging.error(reason)
+            logging.error(usage())
             sys.exit(1)
 
         scmd, qty = process_argv()
@@ -123,16 +161,16 @@ def run_seqel():
         scmd_vtable = {
             'padovan': padovan,
             'catalan': _unimplemented_func_err,
-            'fibonacci': _unimplemented_func_err,
+            'fibonacci': fibonacci,
         }
 
         scmd_func = scmd_vtable[scmd]
         assert(type(lambda x: x) == type(scmd_func))
 
         seq_el = scmd_func(qty)
-        print(seq_el)
+        logging.info(seq_el)
     else:
-        print('error: this was imported as a library, which is unintended')
-        print('       please rerun this program directly')
+        logging.error('this was imported as a library, which is unintended')
+        logging.error('       please rerun this program directly')
 
 run_seqel()
