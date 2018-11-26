@@ -10,10 +10,10 @@ seqel 0.0.1
 Print numbers from integer sequences
 
 USAGE:
-    seqel [FLAGS] <SUBCOMMAND> NTH
+    seqel <SUBCOMMAND> NTH [FLAGS]
 
 FLAGS:
-    -e, --entire     Print the entire sequence from initial values to the given NTH element
+    -e, --entire     Print the entire sequence from initial values up to and including the given NTH element
     --log-level=LVL  Run seqel with the given log level LVL. Defaults to `info'.
 
 SUBCOMMANDS:
@@ -24,6 +24,8 @@ SUBCOMMANDS:
 
 # TODO untested
 def factorial(n):
+    if n == 0:
+        return 1
     assert(n > 0)
     k = n
     rv = 1
@@ -32,12 +34,19 @@ def factorial(n):
         k -= 1
     return rv
 
+def catalan(n):
+    logging.debug('calculating catalan number for n = {}'.format(n))
+    numer = factorial(2*n)
+    denom = factorial(n)*factorial(n+1)
+    assert(denom > 0)
+    return numer // denom
+
 def fibonacci(n):
     """
     Return the `n'th element of the fibonacci sequence.
     `n' must be an whole number.
     """
-    logging.info('calculating fibonacci number for n = {}'.format(n))
+    logging.debug('calculating fibonacci number for n = {}'.format(n))
     assert(type(0) == type(n))
     assert(n >= 0)
     rvs = [1, 1]
@@ -67,7 +76,7 @@ def padovan(n):
     Return the `n'th element of the padovan sequence.
     `n' must be an whole number.
     """
-    logging.info('calculating padovan number for n = {}'.format(n))
+    logging.debug('calculating padovan number for n = {}'.format(n))
     assert(type(0) == type(n))
     assert(n >= 0)
     rvs = [1, 1, 1]
@@ -99,12 +108,12 @@ def validate_argv():
     numargs = len(sys.argv)-1
     ok = True
     reason = None
-    if numargs != 2:
+    if numargs  < 2:
         if numargs == 0:
             reason = 'no subcommand provided'
         if numargs == 1:
             reason = 'no value given for indexing into sequence'
-        if numargs > 2:
+        if numargs > 4:
             reason = 'too many arguments provided'
         return (not ok, reason)
     else:
@@ -117,6 +126,20 @@ def validate_argv():
         if scmd.lower() not in acceptable_subcommands:
             reason = 'unrecognized subcommand'
             return (not ok, reason)
+        flags = sys.argv[3:]
+        flags_of_right_form = any(map(lambda s: s.startswith("--"), flags))
+        if numargs > 2 and flags_of_right_form:
+            logging.debug('flags:')
+            acceptable_flag_prefixes = [
+                '--log-level',
+                '--entire',
+            ]
+            for flag in flags:
+                logging.debug('  {}'.format(flag))
+                flag_is_valid = any(map(lambda s: flag.startswith(s), acceptable_flag_prefixes))
+                if not flag_is_valid:
+                    reason = 'unrecognised flag encountered: {}'.format(flag)
+                    return (not ok, reason)
     return ok, reason
 
 # TODO untested
@@ -132,43 +155,71 @@ def process_argv():
         logging.error(usage())
         sys.exit(1)
 
-    return sys.argv[1], qty
+    return sys.argv[1], qty, sys.argv[3:]
 
 # TODO untested
 def _unimplemented_func_err(_):
-    logger.critical('the requested subcommand has not been implemented')
+    logging.critical('the requested subcommand has not been implemented')
     sys.exit(2)
+
+# TODO untested
+def find(predicate, xs):
+    """
+    Find the first `x' that passes `predicate' in `xs'.
+    """
+    matches = filter(predicate, xs)
+    has_match = any(map(predicate, xs))
+    if has_match:
+        return list(matches)[0]
+    return None
 
 # TODO untested
 def run_seqel():
     logger = logging.getLogger()
-    logger.setLevel('NOTSET')
+    logger.setLevel('ERROR')
+    show_entire_sequence = False
     if __name__ == "__main__":
-        logging.debug("seqel 0.1.0; running in debug mode")
-        for i, arg in enumerate(sys.argv):
-            logging.debug("  arg in pos {}: {}".format(i, arg))
-
         ok, reason = validate_argv()
         if not ok:
             logging.error(reason)
-            logging.error(usage())
+            print(usage())
             sys.exit(1)
 
-        scmd, qty = process_argv()
+        scmd, qty, flags = process_argv()
+
+        log_level_flag = find(lambda s: s.startswith("--log-level"), flags)
+        if log_level_flag is not None:
+            log_level = log_level_flag.split('=')[1].upper()
+            logger.setLevel(log_level)
+
+        entire_flag = find(lambda s: s.startswith("--entire"), flags)
+        if entire_flag is not None:
+            show_entire_sequence = True
+
+        logging.debug("seqel 0.1.0; running in debug mode")
+        for i, arg in enumerate(sys.argv):
+            logging.debug("  arg in pos {}: {}".format(i, arg))
 
         # Each command in the lookup table is unary.
         # Taking the number to index into the given sequence.
         scmd_vtable = {
             'padovan': padovan,
-            'catalan': _unimplemented_func_err,
+            'catalan': catalan,
             'fibonacci': fibonacci,
         }
 
         scmd_func = scmd_vtable[scmd]
         assert(type(lambda x: x) == type(scmd_func))
 
-        seq_el = scmd_func(qty)
-        logging.info(seq_el)
+        if show_entire_sequence:
+            logging.debug('printing entire sequence')
+            for i in range(qty+1):
+                seq_el = scmd_func(i)
+                print(seq_el)
+        else:
+            logging.debug('printing single item from requested sequence')
+            seq_el = scmd_func(qty)
+            print(seq_el)
     else:
         logging.error('this was imported as a library, which is unintended')
         logging.error('       please rerun this program directly')
